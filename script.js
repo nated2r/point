@@ -114,7 +114,7 @@ function matchKeywords(ocrText) {
         points: 0
     };
     
-    // 清理辨識文字（移除空白、換行）
+    // 清理辨識文字（移除空白、換行），但保留中文字符
     const cleanText = ocrText.replace(/\s+/g, '');
     
     // 比對每個商品
@@ -122,8 +122,10 @@ function matchKeywords(ocrText) {
         for (const keyword of product.keywords) {
             const cleanKeyword = keyword.replace(/\s+/g, '');
             
-            // 計算相似度（使用最長公共子序列或包含度）
+            // 計算相似度（使用改進的匹配算法）
             const similarity = calculateSimilarity(cleanText, cleanKeyword);
+            
+            console.log(`關鍵字 "${keyword}" 相似度: ${(similarity * 100).toFixed(1)}%`);
             
             if (similarity > bestMatch.similarity) {
                 bestMatch.similarity = similarity;
@@ -132,8 +134,8 @@ function matchKeywords(ocrText) {
         }
     }
     
-    // 如果相似度 > 0.5 (50%)，則符合
-    if (bestMatch.similarity >= 0.5) {
+    // 降低門檻到 0.35 (35%)，讓匹配更容易
+    if (bestMatch.similarity >= 0.35) {
         bestMatch.matched = true;
         bestMatch.points = 1;
     }
@@ -148,28 +150,35 @@ function calculateSimilarity(text, keyword) {
         return 1.0;
     }
     
-    // 方法2: 使用正則表達式檢查關鍵字（允許中間有少量其他字符）
-    // 對於「纖歲」這種兩個字的情況，允許中間有 0-3 個其他字符
+    // 方法2: 使用正則表達式檢查關鍵字（允許中間有較多其他字符）
+    // 對於「纖歲」這種兩個字的情況，允許中間有 0-10 個其他字符（更寬鬆）
     const keywordChars = keyword.split('');
     if (keywordChars.length >= 2) {
-        // 建立靈活的正則表達式模式
-        const flexiblePattern = keywordChars.join('[\\s\\S]{0,3}'); // 允許中間有0-3個任意字符
+        // 建立靈活的正則表達式模式（允許中間有更多字符）
+        const flexiblePattern = keywordChars.join('[\\s\\S]{0,10}'); // 允許中間有0-10個任意字符
         const regex = new RegExp(flexiblePattern);
         if (regex.test(text)) {
             return 0.85; // 如果找到靈活匹配，給較高的相似度
         }
+        
+        // 也嘗試反向匹配（順序相反但字符相同）
+        const reversedPattern = keywordChars.reverse().join('[\\s\\S]{0,10}');
+        const reversedRegex = new RegExp(reversedPattern);
+        if (reversedRegex.test(text)) {
+            return 0.75; // 反向匹配也給予較高相似度
+        }
+        keywordChars.reverse(); // 恢復原順序
     }
     
-    // 方法3: 檢查關鍵字的所有字符是否都出現在文字中（順序可以不連續）
+    // 方法3: 檢查關鍵字的所有字符是否都出現在文字中（順序可以不連續，更寬鬆）
     let allCharsFound = true;
     let foundPositions = [];
-    let currentPos = 0;
     
+    // 不要求順序，只要所有字符都出現即可
     for (const char of keyword) {
-        const foundPos = text.indexOf(char, currentPos);
+        const foundPos = text.indexOf(char);
         if (foundPos >= 0) {
             foundPositions.push(foundPos);
-            currentPos = foundPos + 1;
         } else {
             allCharsFound = false;
             break;
@@ -177,16 +186,21 @@ function calculateSimilarity(text, keyword) {
     }
     
     if (allCharsFound && foundPositions.length === keyword.length) {
-        // 如果所有字符都找到且順序大致正確，計算相似度
+        // 排序位置，檢查字符之間的距離
+        foundPositions.sort((a, b) => a - b);
         const span = foundPositions[foundPositions.length - 1] - foundPositions[0];
         const idealSpan = keyword.length - 1;
-        // 如果字符之間的距離不超過關鍵字長度的 3 倍，認為匹配
-        if (span <= idealSpan * 3) {
-            return 0.7; // 所有字符都找到且順序大致正確
+        
+        // 如果字符之間的距離不超過關鍵字長度的 10 倍（更寬鬆），認為匹配
+        if (span <= idealSpan * 10) {
+            return 0.7; // 所有字符都找到，即使距離較遠也匹配
         }
+        
+        // 即使距離很遠，如果所有字符都找到，也給一個基本分數
+        return 0.5;
     }
     
-    // 方法4: 計算部分匹配度（字符匹配百分比）
+    // 方法4: 計算部分匹配度（字符匹配百分比，降低門檻）
     let matchedChars = 0;
     for (const char of keyword) {
         if (text.includes(char)) {
@@ -197,6 +211,8 @@ function calculateSimilarity(text, keyword) {
     const charMatchRate = matchedChars / keyword.length;
     if (charMatchRate >= 0.8) {
         return 0.65; // 80% 以上的字符匹配
+    } else if (charMatchRate >= 0.5) {
+        return 0.45; // 50% 以上的字符匹配也給分數
     }
     
     // 方法5: 傳統的滑動視窗方法（作為備用）

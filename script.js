@@ -141,18 +141,68 @@ function matchKeywords(ocrText) {
     return bestMatch;
 }
 
-// 計算相似度（簡化版本：使用包含度和編輯距離概念）
+// 計算相似度（改進版本：更好的關鍵字匹配）
 function calculateSimilarity(text, keyword) {
-    // 方法1: 如果文字包含關鍵字，相似度為 1.0
+    // 方法1: 如果文字包含完整的關鍵字，相似度為 1.0
     if (text.includes(keyword)) {
         return 1.0;
     }
     
-    // 方法2: 計算關鍵字在文字中的最大匹配度
+    // 方法2: 使用正則表達式檢查關鍵字（允許中間有少量其他字符）
+    // 對於「纖歲」這種兩個字的情況，允許中間有 0-3 個其他字符
+    const keywordChars = keyword.split('');
+    if (keywordChars.length >= 2) {
+        // 建立靈活的正則表達式模式
+        const flexiblePattern = keywordChars.join('[\\s\\S]{0,3}'); // 允許中間有0-3個任意字符
+        const regex = new RegExp(flexiblePattern);
+        if (regex.test(text)) {
+            return 0.85; // 如果找到靈活匹配，給較高的相似度
+        }
+    }
+    
+    // 方法3: 檢查關鍵字的所有字符是否都出現在文字中（順序可以不連續）
+    let allCharsFound = true;
+    let foundPositions = [];
+    let currentPos = 0;
+    
+    for (const char of keyword) {
+        const foundPos = text.indexOf(char, currentPos);
+        if (foundPos >= 0) {
+            foundPositions.push(foundPos);
+            currentPos = foundPos + 1;
+        } else {
+            allCharsFound = false;
+            break;
+        }
+    }
+    
+    if (allCharsFound && foundPositions.length === keyword.length) {
+        // 如果所有字符都找到且順序大致正確，計算相似度
+        const span = foundPositions[foundPositions.length - 1] - foundPositions[0];
+        const idealSpan = keyword.length - 1;
+        // 如果字符之間的距離不超過關鍵字長度的 3 倍，認為匹配
+        if (span <= idealSpan * 3) {
+            return 0.7; // 所有字符都找到且順序大致正確
+        }
+    }
+    
+    // 方法4: 計算部分匹配度（字符匹配百分比）
+    let matchedChars = 0;
+    for (const char of keyword) {
+        if (text.includes(char)) {
+            matchedChars++;
+        }
+    }
+    
+    const charMatchRate = matchedChars / keyword.length;
+    if (charMatchRate >= 0.8) {
+        return 0.65; // 80% 以上的字符匹配
+    }
+    
+    // 方法5: 傳統的滑動視窗方法（作為備用）
     let maxMatch = 0;
     const keywordLength = keyword.length;
     
-    // 滑動視窗檢查
     for (let i = 0; i <= text.length - keywordLength; i++) {
         const substring = text.substring(i, i + keywordLength);
         let matchCount = 0;
@@ -166,16 +216,6 @@ function calculateSimilarity(text, keyword) {
         const matchRate = matchCount / keywordLength;
         if (matchRate > maxMatch) {
             maxMatch = matchRate;
-        }
-    }
-    
-    // 如果關鍵字很短，也檢查部分匹配
-    if (keywordLength <= 2 && maxMatch < 0.5) {
-        // 檢查單個字元的匹配
-        for (const char of keyword) {
-            if (text.includes(char)) {
-                maxMatch = Math.max(maxMatch, 0.6);
-            }
         }
     }
     

@@ -90,18 +90,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // OCR 辨識函數
 async function performOCR(imageFile) {
+    // 確保語言模型已載入
+    await Tesseract.loadLanguage('chi_tra+eng');
+    
     const { data: { text } } = await Tesseract.recognize(
         imageFile,
         'chi_tra+eng', // 支援繁體中文和英文
         {
             logger: m => {
-                if (m.status === 'recognizing text') {
+                if (m.status === 'loading language traineddata') {
+                    console.log('正在載入語言模型:', m.message);
+                } else if (m.status === 'recognizing text') {
                     console.log('辨識進度:', Math.round(m.progress * 100) + '%');
+                } else {
+                    console.log('OCR 狀態:', m.status, m.message || '');
                 }
             }
         }
     );
     
+    console.log('OCR 原始辨識結果:', text);
     return text.trim();
 }
 

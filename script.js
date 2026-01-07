@@ -1,6 +1,6 @@
 // 商品關鍵字配置（待用戶提供完整列表後填入）
 const PRODUCT_KEYWORDS = [
-    { name: '纖歲茶', keywords: ['纖歲', '纖歲茶'] },
+    { name: '纖歲茶', keywords: ['纖歲'] },
     // 待添加其他 5 個品項...
 ];
 

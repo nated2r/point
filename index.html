@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商品積分系統</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>商品積分上傳系統</h1>
+        
+        <form id="uploadForm">
+            <div class="form-group">
+                <label for="name">姓名：</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="phone">電話：</label>
+                <input type="tel" id="phone" name="phone" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="photo">上傳商品照片：</label>
+                <input type="file" id="photo" name="photo" accept="image/*" required>
+                <div id="preview" class="preview-area"></div>
+            </div>
+            
+            <button type="submit" id="submitBtn" class="submit-btn">辨識並積分</button>
+        </form>
+        
+        <div id="result" class="result-area"></div>
+        <div id="loading" class="loading hidden">
+            <p>正在辨識照片中，請稍候...</p>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
+
